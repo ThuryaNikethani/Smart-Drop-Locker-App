@@ -1,0 +1,47 @@
+{
+  "project_info": {
+    "project_number": "260823137789",
+    "firebase_url": "https://drop-lock-app-default-rtdb.firebaseio.com",
+    "project_id": "drop-lock-app",
+    "storage_bucket": "drop-lock-app.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:260823137789:android:65cd9c4647c336814ced94",
+        "android_client_info": {
+          "package_name": "com.example.appnew"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "260823137789-r1n61ajj2ehha6loc47bj0i3pjqvb1b1.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBOE9Hghj9R9mOOoUiFo4klBeqnfwB3pR4"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "260823137789-r1n61ajj2ehha6loc47bj0i3pjqvb1b1.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "260823137789-afn4ugv0tb491g4ot504c938p7giemud.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.example.appnew"
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

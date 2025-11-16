@@ -1,0 +1,1 @@
+{"flutter":{"platforms":{"android":{"default":{"projectId":"drop-lock-app","appId":"1:260823137789:android:65cd9c4647c336814ced94","fileOutput":"android/app/google-services.json"}},"dart":{"lib/firebase_options.dart":{"projectId":"drop-lock-app","configurations":{"android":"1:260823137789:android:65cd9c4647c336814ced94","web":"1:260823137789:web:1766cf9d56a65c954ced94"}}}}}}
