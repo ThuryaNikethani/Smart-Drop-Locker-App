@@ -1,17 +1,15 @@
 import 'dart:convert';
 import 'dart:typed_data';
+import 'dart:io';
 import 'dart:ui' as ui;
 import 'dart:async';
-import 'dart:math';
 
-import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 import 'package:crypto/crypto.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'firebase_options.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_database/firebase_database.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
@@ -23,16 +21,7 @@ import 'package:geolocator/geolocator.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-
-  // Initialize Firebase with error handling for web
-  try {
-    await Firebase.initializeApp(
-      options: DefaultFirebaseOptions.currentPlatform,
-    );
-  } catch (e) {
-    debugPrint('Firebase initialization error: $e');
-  }
-
+  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
   runApp(const DropLockApp());
 }
 
@@ -997,15 +986,6 @@ class _UserDashboardState extends State<UserDashboard> {
                 unreadCount++;
               }
 
-              // Check if status changed to Delivered
-              final isStatusChange = doc.type == DocumentChangeType.modified;
-              if (isStatusChange &&
-                  status == 'Delivered' &&
-                  !_seenParcelIds.contains('delivered_$parcelId')) {
-                _seenParcelIds.add('delivered_$parcelId');
-                _showParcelDeliveredPopup(data);
-              }
-
               final isNewParcel = doc.type == DocumentChangeType.added;
               if (isNewParcel &&
                   !_seenParcelIds.contains(parcelId) &&
@@ -1036,126 +1016,6 @@ class _UserDashboardState extends State<UserDashboard> {
         _unreadNotifications = 0;
       });
     }
-  }
-
-  Future<void> _showParcelDeliveredPopup(
-    Map<String, dynamic> parcelData,
-  ) async {
-    if (!mounted) return;
-
-    final senderName = parcelData['senderName'] ?? 'Sender';
-    final parcelId = parcelData['parcelId'] ?? '';
-
-    showDialog(
-      context: context,
-      builder: (_) => Dialog(
-        backgroundColor: Colors.white,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                width: 80,
-                height: 80,
-                decoration: BoxDecoration(
-                  color: AppColors.success.withOpacity(0.1),
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(
-                  Icons.check_circle_rounded,
-                  color: AppColors.success,
-                  size: 50,
-                ),
-              ),
-              const SizedBox(height: 20),
-              const Text(
-                '🎉 Parcel Delivered!',
-                style: TextStyle(
-                  fontSize: 24,
-                  fontWeight: FontWeight.w800,
-                  color: AppColors.textPrimary,
-                ),
-              ),
-              const SizedBox(height: 12),
-              Text(
-                'Your parcel from $senderName has been successfully delivered!',
-                textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 16, color: AppColors.textSecondary),
-              ),
-              const SizedBox(height: 8),
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 6,
-                ),
-                decoration: BoxDecoration(
-                  color: AppColors.background,
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: Text(
-                  'ID: ${parcelId.substring(0, 8).toUpperCase()}',
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: AppColors.textSecondary,
-                    fontFamily: 'Monospace',
-                  ),
-                ),
-              ),
-              const SizedBox(height: 24),
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton.icon(
-                  onPressed: () {
-                    Navigator.pop(context);
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => ParcelDetailScreen(parcel: parcelData),
-                      ),
-                    );
-                  },
-                  icon: const Icon(Icons.visibility_rounded, size: 20),
-                  label: const Text(
-                    'View Details',
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
-                  ),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.success,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 8),
-              TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: const Text(
-                  'Close',
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: AppColors.textSecondary,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-
-    // Show toast notification
-    Fluttertoast.showToast(
-      msg: '📦 Your parcel has been delivered!',
-      backgroundColor: AppColors.success,
-      textColor: Colors.white,
-      fontSize: 16,
-      toastLength: Toast.LENGTH_LONG,
-    );
   }
 
   Future<void> _showNewParcelPopup(Map<String, dynamic> parcelData) async {
@@ -2075,12 +1935,6 @@ class _SubmitOrderScreenState extends State<SubmitOrderScreen> {
 
       try {
         final parcelId = const Uuid().v4();
-
-        // Generate 4-digit password
-        final random = Random();
-        final pickupPassword = (1000 + random.nextInt(9000))
-            .toString(); // Generates 1000-9999
-
         final qrData = jsonEncode({
           'parcelId': parcelId,
           'senderName': senderName.text.trim(),
@@ -2091,61 +1945,29 @@ class _SubmitOrderScreenState extends State<SubmitOrderScreen> {
           'type': 'parcel',
         });
 
-        final parcelData = {
-          'senderId': widget.user['phone'],
-          'senderName': senderName.text.trim(),
-          'senderPhone': senderPhone.text.trim(),
-          'senderAddress': senderAddress.text.trim(),
-          'receiverName': receiverName.text.trim(),
-          'receiverPhone': receiverPhone.text.trim(),
-          'receiverAddress': receiverAddress.text.trim(),
-          'details': parcelDetails.text.trim(),
-          'createdAt': FieldValue.serverTimestamp(),
-          'parcelId': parcelId,
-          'status': 'Pending',
-          'isViewed': false,
-          'riderId': null,
-          'riderName': null,
-          'qrData': qrData,
-          'qrGenerated': true,
-          'pickupPassword': pickupPassword,
-        };
-
-        // Get current location
-        Position? currentPosition;
-        try {
-          LocationPermission permission = await Geolocator.checkPermission();
-          if (permission == LocationPermission.denied) {
-            permission = await Geolocator.requestPermission();
-          }
-          if (permission == LocationPermission.whileInUse ||
-              permission == LocationPermission.always) {
-            currentPosition = await Geolocator.getCurrentPosition(
-              desiredAccuracy: LocationAccuracy.high,
-            );
-          }
-        } catch (e) {
-          debugPrint('Error getting location: $e');
-        }
-
-        // Save to Firestore
         await FirebaseFirestore.instance
             .collection('parcels')
             .doc(parcelId)
-            .set(parcelData);
+            .set({
+              'senderId': widget.user['phone'],
+              'senderName': senderName.text.trim(),
+              'senderPhone': senderPhone.text.trim(),
+              'senderAddress': senderAddress.text.trim(),
+              'receiverName': receiverName.text.trim(),
+              'receiverPhone': receiverPhone.text.trim(),
+              'receiverAddress': receiverAddress.text.trim(),
+              'details': parcelDetails.text.trim(),
+              'createdAt': FieldValue.serverTimestamp(),
+              'parcelId': parcelId,
+              'status': 'Pending',
+              'isViewed': false,
+              'riderId': null,
+              'riderName': null,
+              'qrData': qrData,
+              'qrGenerated': true,
+            });
 
-        // Save password and location to Realtime Database
-        final DatabaseReference realtimeDb = FirebaseDatabase.instance.ref();
-        await realtimeDb.child('passwords').set({'password': pickupPassword});
-
-        if (currentPosition != null) {
-          await realtimeDb.child('locations').set({
-            'lat': currentPosition.latitude,
-            'long': currentPosition.longitude,
-          });
-        }
-
-        await _showQRDialog(qrData, parcelId, pickupPassword);
+        await _showQRDialog(qrData, parcelId);
 
         receiverName.clear();
         receiverPhone.clear();
@@ -2173,11 +1995,7 @@ class _SubmitOrderScreenState extends State<SubmitOrderScreen> {
     }
   }
 
-  Future<void> _showQRDialog(
-    String data,
-    String parcelId,
-    String pickupPassword,
-  ) async {
+  Future<void> _showQRDialog(String data, String parcelId) async {
     final qrBytes = await _generateQRBytes(data);
 
     showDialog(
@@ -2186,135 +2004,77 @@ class _SubmitOrderScreenState extends State<SubmitOrderScreen> {
       builder: (_) => Dialog(
         backgroundColor: Colors.white,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-        child: SingleChildScrollView(
-          child: Padding(
-            padding: const EdgeInsets.all(30),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Container(
-                  width: 80,
-                  height: 80,
-                  decoration: BoxDecoration(
-                    color: AppColors.primary.withOpacity(0.1),
-                    shape: BoxShape.circle,
-                  ),
-                  child: const Icon(
-                    Icons.qr_code_2_rounded,
-                    color: AppColors.primary,
-                    size: 40,
-                  ),
+        child: Padding(
+          padding: const EdgeInsets.all(30),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 80,
+                height: 80,
+                decoration: BoxDecoration(
+                  color: AppColors.primary.withOpacity(0.1),
+                  shape: BoxShape.circle,
                 ),
-                const SizedBox(height: 24),
-                const Text(
-                  'QR Code Generated!',
-                  style: TextStyle(
-                    fontSize: 24,
-                    fontWeight: FontWeight.w800,
-                    color: AppColors.textPrimary,
-                  ),
+                child: const Icon(
+                  Icons.qr_code_2_rounded,
+                  color: AppColors.primary,
+                  size: 40,
                 ),
-                const SizedBox(height: 8),
-                Text(
-                  'Show this code to the rider',
-                  style: TextStyle(
-                    fontSize: 16,
-                    color: AppColors.textSecondary,
-                  ),
+              ),
+              const SizedBox(height: 24),
+              const Text(
+                'QR Code Generated!',
+                style: TextStyle(
+                  fontSize: 24,
+                  fontWeight: FontWeight.w800,
+                  color: AppColors.textPrimary,
                 ),
-                const SizedBox(height: 30),
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: AppColors.background,
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(
-                      color: AppColors.primary.withOpacity(0.2),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Show this code to the rider',
+                style: TextStyle(fontSize: 16, color: AppColors.textSecondary),
+              ),
+              const SizedBox(height: 30),
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: AppColors.background,
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(color: AppColors.primary.withOpacity(0.2)),
+                ),
+                child: Image.memory(qrBytes, width: 200, height: 200),
+              ),
+              const SizedBox(height: 20),
+              Text(
+                'Parcel ID: ${parcelId.substring(0, 8)}...',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: AppColors.textSecondary,
+                  fontFamily: 'Monospace',
+                ),
+              ),
+              const SizedBox(height: 30),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: () => Navigator.pop(context),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.primary,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
                     ),
                   ),
-                  child: Image.memory(qrBytes, width: 200, height: 200),
-                ),
-                const SizedBox(height: 20),
-                Text(
-                  'Parcel ID: ${parcelId.substring(0, 8)}...',
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: AppColors.textSecondary,
-                    fontFamily: 'Monospace',
+                  child: const Text(
+                    'Close',
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
                   ),
                 ),
-                const SizedBox(height: 16),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    vertical: 12,
-                    horizontal: 20,
-                  ),
-                  decoration: BoxDecoration(
-                    color: AppColors.secondary,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(
-                      color: AppColors.primary.withOpacity(0.3),
-                    ),
-                  ),
-                  child: Column(
-                    children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(
-                            Icons.lock_rounded,
-                            color: AppColors.primary,
-                            size: 20,
-                          ),
-                          const SizedBox(width: 8),
-                          const Text(
-                            'Pickup Password',
-                            style: TextStyle(
-                              fontSize: 14,
-                              fontWeight: FontWeight.w600,
-                              color: AppColors.textPrimary,
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        pickupPassword,
-                        style: const TextStyle(
-                          fontSize: 28,
-                          fontWeight: FontWeight.w900,
-                          color: AppColors.primary,
-                          letterSpacing: 6,
-                          fontFamily: 'Monospace',
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 30),
-                SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton(
-                    onPressed: () => Navigator.pop(context),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppColors.primary,
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                    ),
-                    child: const Text(
-                      'Close',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
+              ),
+            ],
           ),
         ),
       ),
@@ -2926,12 +2686,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         ),
                       ),
                       const SizedBox(height: 20),
-                      _buildInfoItem('User ID', widget.user['userId'] ?? 'N/A'),
-                      const Divider(height: 32),
-                      _buildInfoItem(
-                        'Phone Number',
-                        widget.user['phone'] ?? 'N/A',
-                      ),
+                      _buildInfoItem('User ID', widget.user['phone'] ?? 'N/A'),
                       const Divider(height: 32),
                       _buildInfoItem('Role', userRole),
                       const Divider(height: 32),
@@ -3638,7 +3393,6 @@ class ParcelDetailScreen extends StatelessWidget {
     final parcelId = parcel['parcelId'] ?? 'Unknown ID';
     final createdAt = parcel['createdAt'] as Timestamp?;
     final riderName = parcel['riderName'];
-    final pickupPassword = parcel['pickupPassword'] ?? 'N/A';
 
     // Mark as viewed when opened
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -3817,89 +3571,6 @@ class ParcelDetailScreen extends StatelessWidget {
                   ),
               ]),
 
-              const SizedBox(height: 16),
-
-              // Pickup Password Card
-              Card(
-                elevation: 4,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(18),
-                ),
-                color: AppColors.secondary,
-                child: Padding(
-                  padding: const EdgeInsets.all(20),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Container(
-                            width: 40,
-                            height: 40,
-                            decoration: BoxDecoration(
-                              color: AppColors.primary.withOpacity(0.2),
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                            child: const Icon(
-                              Icons.lock_rounded,
-                              color: AppColors.primary,
-                              size: 20,
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          const Text(
-                            'Pickup Password',
-                            style: TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.w700,
-                              color: AppColors.textPrimary,
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 16),
-                      Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.symmetric(
-                          vertical: 20,
-                          horizontal: 24,
-                        ),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(
-                            color: AppColors.primary,
-                            width: 2,
-                          ),
-                        ),
-                        child: Center(
-                          child: Text(
-                            pickupPassword,
-                            style: const TextStyle(
-                              fontSize: 32,
-                              fontWeight: FontWeight.w900,
-                              color: AppColors.primary,
-                              letterSpacing: 8,
-                              fontFamily: 'Monospace',
-                            ),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      Text(
-                        'Keep this password secure. Only share between sender and receiver.',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          fontSize: 13,
-                          color: AppColors.textSecondary,
-                          fontStyle: FontStyle.italic,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-
               const SizedBox(height: 32),
 
               // Actions
@@ -4049,7 +3720,7 @@ class UserTrackScreen extends StatefulWidget {
 }
 
 class _UserTrackScreenState extends State<UserTrackScreen> {
-  GoogleMapController? _mapController;
+  late GoogleMapController _mapController;
   Position? _currentPosition;
   bool _isLoading = true;
   String? _errorMessage;
@@ -4061,7 +3732,6 @@ class _UserTrackScreenState extends State<UserTrackScreen> {
   LatLng? _parcelLocation;
   LatLng? _userLocation;
   StreamSubscription<QuerySnapshot>? _parcelListener;
-  StreamSubscription<DatabaseEvent>? _locationListener;
 
   // Mock delivery path (in real app, this would come from Firestore)
   final List<LatLng> _deliveryPath = [];
@@ -4069,93 +3739,16 @@ class _UserTrackScreenState extends State<UserTrackScreen> {
   @override
   void initState() {
     super.initState();
-    _loadLocationFromRealtimeDatabase();
-    _startRealtimeLocationListener();
+    _requestLocationPermission();
     _loadCustomMapIcons();
     _startTrackingIfNeeded();
   }
 
   @override
   void dispose() {
-    _mapController?.dispose();
+    _mapController.dispose();
     _parcelListener?.cancel();
-    _locationListener?.cancel();
     super.dispose();
-  }
-
-  void _startRealtimeLocationListener() {
-    final DatabaseReference locationRef = FirebaseDatabase.instance.ref().child(
-      'locations',
-    );
-
-    _locationListener = locationRef.onValue.listen((DatabaseEvent event) {
-      if (event.snapshot.exists) {
-        final data = event.snapshot.value as Map<dynamic, dynamic>;
-        final lat = data['lat'] as double?;
-        final long = data['long'] as double?;
-
-        if (lat != null && long != null) {
-          final newLocation = LatLng(lat, long);
-
-          if (mounted) {
-            setState(() {
-              _parcelLocation = newLocation;
-              _userLocation = newLocation;
-              _isLoading = false;
-            });
-
-            // Update marker at the new location
-            _addParcelMarker(newLocation, 'location', 'Parcel Location');
-
-            // Animate camera to new location
-            _mapController?.animateCamera(
-              CameraUpdate.newCameraPosition(
-                CameraPosition(target: newLocation, zoom: 14.0),
-              ),
-            );
-          }
-        }
-      }
-    });
-  }
-
-  Future<void> _loadLocationFromRealtimeDatabase() async {
-    try {
-      final DatabaseReference realtimeDb = FirebaseDatabase.instance.ref();
-      final snapshot = await realtimeDb.child('locations').get();
-
-      if (snapshot.exists) {
-        final data = snapshot.value as Map<dynamic, dynamic>;
-        final lat = data['lat'] as double?;
-        final long = data['long'] as double?;
-
-        if (lat != null && long != null) {
-          setState(() {
-            _parcelLocation = LatLng(lat, long);
-            _userLocation = LatLng(lat, long);
-            _isLoading = false;
-          });
-
-          // Add marker at the location
-          _addParcelMarker(_parcelLocation!, 'location', 'Parcel Location');
-        } else {
-          setState(() {
-            _errorMessage = 'Location coordinates not found';
-            _isLoading = false;
-          });
-        }
-      } else {
-        setState(() {
-          _errorMessage = 'No location data available';
-          _isLoading = false;
-        });
-      }
-    } catch (e) {
-      setState(() {
-        _errorMessage = 'Error loading location: $e';
-        _isLoading = false;
-      });
-    }
   }
 
   Future<void> _loadCustomMapIcons() async {
@@ -4305,6 +3898,7 @@ class _UserTrackScreenState extends State<UserTrackScreen> {
       _parcelListener = FirebaseFirestore.instance
           .collection('parcels')
           .where('receiverPhone', isEqualTo: phone)
+          .where('status', whereIn: ['Picked Up', 'Out for Delivery'])
           .snapshots()
           .listen((snapshot) {
             if (snapshot.docs.isNotEmpty) {
@@ -4315,139 +3909,10 @@ class _UserTrackScreenState extends State<UserTrackScreen> {
 
               if (status == 'Picked Up' || status == 'Out for Delivery') {
                 _startTrackingParcel(parcelId, data);
-              } else if (status == 'Delivered' &&
-                  _trackingParcelId == parcelId) {
-                // Stop tracking when delivered
-                _stopTracking();
-                _showDeliveryCompleteNotification(data);
               }
-            } else if (_trackingParcelId != null) {
-              // No active parcels, stop tracking
-              _stopTracking();
             }
           });
     }
-  }
-
-  void _stopTracking() {
-    if (mounted) {
-      setState(() {
-        _trackingParcelId = null;
-        _markers.clear();
-        _polylines.clear();
-        _parcelLocation = null;
-      });
-    }
-  }
-
-  void _showDeliveryCompleteNotification(Map<String, dynamic> parcelData) {
-    if (!mounted) return;
-
-    final parcelId = parcelData['parcelId'] ?? '';
-
-    Fluttertoast.showToast(
-      msg: '✅ Parcel delivered! Tracking stopped.',
-      backgroundColor: AppColors.success,
-      textColor: Colors.white,
-      fontSize: 16,
-      toastLength: Toast.LENGTH_LONG,
-    );
-
-    showDialog(
-      context: context,
-      builder: (_) => Dialog(
-        backgroundColor: Colors.white,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                width: 80,
-                height: 80,
-                decoration: BoxDecoration(
-                  color: AppColors.success.withOpacity(0.1),
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(
-                  Icons.check_circle_rounded,
-                  color: AppColors.success,
-                  size: 50,
-                ),
-              ),
-              const SizedBox(height: 20),
-              const Text(
-                'Delivery Complete!',
-                style: TextStyle(
-                  fontSize: 24,
-                  fontWeight: FontWeight.w800,
-                  color: AppColors.textPrimary,
-                ),
-              ),
-              const SizedBox(height: 12),
-              const Text(
-                'Your parcel has been successfully delivered. Tracking has been stopped.',
-                textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 16, color: AppColors.textSecondary),
-              ),
-              const SizedBox(height: 8),
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 6,
-                ),
-                decoration: BoxDecoration(
-                  color: AppColors.background,
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: Text(
-                  'Parcel #${parcelId.substring(0, 8).toUpperCase()}',
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: AppColors.textSecondary,
-                    fontFamily: 'Monospace',
-                  ),
-                ),
-              ),
-              const SizedBox(height: 24),
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton.icon(
-                  onPressed: () {
-                    Navigator.pop(context);
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => ParcelDetailScreen(parcel: parcelData),
-                      ),
-                    );
-                  },
-                  icon: const Icon(Icons.visibility_rounded),
-                  label: const Text(
-                    'View Details',
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
-                  ),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.success,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 8),
-              TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: const Text('Close'),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
   }
 
   void _startTrackingParcel(String parcelId, Map<String, dynamic> parcelData) {
@@ -4542,29 +4007,31 @@ class _UserTrackScreenState extends State<UserTrackScreen> {
       });
 
       // Update camera position
-      _mapController?.animateCamera(
-        CameraUpdate.newLatLngBounds(
-          LatLngBounds(
-            southwest: LatLng(
-              newLat < _userLocation!.latitude
-                  ? newLat
-                  : _userLocation!.latitude,
-              newLng < _userLocation!.longitude
-                  ? newLng
-                  : _userLocation!.longitude,
+      if (_mapController != null) {
+        _mapController.animateCamera(
+          CameraUpdate.newLatLngBounds(
+            LatLngBounds(
+              southwest: LatLng(
+                newLat < _userLocation!.latitude
+                    ? newLat
+                    : _userLocation!.latitude,
+                newLng < _userLocation!.longitude
+                    ? newLng
+                    : _userLocation!.longitude,
+              ),
+              northeast: LatLng(
+                newLat > _userLocation!.latitude
+                    ? newLat
+                    : _userLocation!.latitude,
+                newLng > _userLocation!.longitude
+                    ? newLng
+                    : _userLocation!.longitude,
+              ),
             ),
-            northeast: LatLng(
-              newLat > _userLocation!.latitude
-                  ? newLat
-                  : _userLocation!.latitude,
-              newLng > _userLocation!.longitude
-                  ? newLng
-                  : _userLocation!.longitude,
-            ),
+            100.0,
           ),
-          100.0,
-        ),
-      );
+        );
+      }
     }
   }
 
@@ -4581,7 +4048,7 @@ class _UserTrackScreenState extends State<UserTrackScreen> {
 
         // Zoom to show both markers if available
         if (_userLocation != null && _parcelLocation != null) {
-          controller.animateCamera(
+          _mapController.animateCamera(
             CameraUpdate.newLatLngBounds(
               LatLngBounds(
                 southwest: LatLng(
@@ -4605,7 +4072,7 @@ class _UserTrackScreenState extends State<UserTrackScreen> {
             ),
           );
         } else if (_userLocation != null) {
-          controller.animateCamera(
+          _mapController.animateCamera(
             CameraUpdate.newLatLngZoom(_userLocation!, 15.0),
           );
         }
@@ -4788,21 +4255,12 @@ class _UserTrackScreenState extends State<UserTrackScreen> {
       final data = doc.data() as Map<String, dynamic>;
       final status = data['status'] ?? '';
       final receiverPhone = data['receiverPhone'] ?? '';
-      final senderPhone = data['senderPhone'] ?? '';
-      final currentUserPhone = widget.user['phone'] ?? '';
 
-      // Check if the current user is either the sender or receiver
-      if (receiverPhone != currentUserPhone &&
-          senderPhone != currentUserPhone) {
+      if (receiverPhone != widget.user['phone']) {
         setState(() {
-          _errorMessage = 'You are not authorized to track this parcel';
+          _errorMessage = 'This parcel is not addressed to you';
           _isLoading = false;
         });
-        Fluttertoast.showToast(
-          msg: 'Access Denied: Only sender and receiver can track this parcel',
-          backgroundColor: AppColors.error,
-          textColor: Colors.white,
-        );
         return;
       }
 
@@ -4901,7 +4359,81 @@ class _UserTrackScreenState extends State<UserTrackScreen> {
                 ],
               ),
             )
-          : Stack(children: [_buildMap(), _buildTrackingInfo()]),
+          : Stack(
+              children: [_buildMap(), _buildTrackingInfo(), _buildSearchBar()],
+            ),
+    );
+  }
+
+  Widget _buildSearchBar() {
+    final TextEditingController searchController = TextEditingController();
+
+    return Positioned(
+      top: 20,
+      left: 20,
+      right: 20,
+      child: Card(
+        elevation: 8,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          child: Row(
+            children: [
+              Expanded(
+                child: TextField(
+                  controller: searchController,
+                  decoration: InputDecoration(
+                    hintText: 'Enter parcel ID to track...',
+                    hintStyle: TextStyle(color: AppColors.textSecondary),
+                    border: InputBorder.none,
+                    icon: Icon(Icons.search_rounded, color: AppColors.primary),
+                  ),
+                  onSubmitted: (value) {
+                    _searchAndTrackParcel(value);
+                  },
+                ),
+              ),
+              IconButton(
+                icon: Icon(
+                  Icons.qr_code_scanner_rounded,
+                  color: AppColors.primary,
+                ),
+                onPressed: () {
+                  // QR Scanner implementation
+                  _showQRScanner();
+                },
+              ),
+              IconButton(
+                icon: Icon(Icons.my_location_rounded, color: AppColors.primary),
+                onPressed: () {
+                  if (_userLocation != null) {
+                    _mapController.animateCamera(
+                      CameraUpdate.newLatLngZoom(_userLocation!, 15.0),
+                    );
+                  }
+                },
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showQRScanner() {
+    // You can implement QR scanning similar to RiderScanParcelScreen
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Scan Parcel QR'),
+        content: const Text('QR scanning feature will be implemented here'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('OK'),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -4909,101 +4441,9 @@ class _UserTrackScreenState extends State<UserTrackScreen> {
 /* =========================
    Enhanced Checking Order Status Screen
 ========================= */
-class CheckingOrderStatusScreen extends StatefulWidget {
+class CheckingOrderStatusScreen extends StatelessWidget {
   final Map<String, dynamic> user;
   const CheckingOrderStatusScreen({super.key, required this.user});
-
-  @override
-  State<CheckingOrderStatusScreen> createState() =>
-      _CheckingOrderStatusScreenState();
-}
-
-class _CheckingOrderStatusScreenState extends State<CheckingOrderStatusScreen> {
-  final TextEditingController _parcelIdController = TextEditingController();
-  bool _isSearching = false;
-  Map<String, dynamic>? _foundParcel;
-  String? _errorMessage;
-
-  @override
-  void dispose() {
-    _parcelIdController.dispose();
-    super.dispose();
-  }
-
-  Future<void> _searchParcel() async {
-    final parcelId = _parcelIdController.text.trim();
-
-    if (parcelId.isEmpty) {
-      Fluttertoast.showToast(msg: 'Please enter a parcel ID');
-      return;
-    }
-
-    setState(() {
-      _isSearching = true;
-      _errorMessage = null;
-      _foundParcel = null;
-    });
-
-    try {
-      final doc = await FirebaseFirestore.instance
-          .collection('parcels')
-          .doc(parcelId)
-          .get();
-
-      if (!doc.exists) {
-        setState(() {
-          _errorMessage = 'Parcel not found';
-          _isSearching = false;
-        });
-        Fluttertoast.showToast(
-          msg: 'Parcel not found',
-          backgroundColor: AppColors.error,
-        );
-        return;
-      }
-
-      final data = doc.data() as Map<String, dynamic>;
-      final senderPhone = data['senderPhone'] ?? '';
-      final receiverPhone = data['receiverPhone'] ?? '';
-      final currentUserPhone = widget.user['phone'] ?? '';
-
-      // Authorization check: Only sender and receiver can check status
-      if (senderPhone != currentUserPhone &&
-          receiverPhone != currentUserPhone) {
-        setState(() {
-          _errorMessage =
-              'Access Denied: You are not authorized to view this parcel';
-          _isSearching = false;
-        });
-        Fluttertoast.showToast(
-          msg:
-              'Access Denied: Only sender and receiver can check this parcel status',
-          backgroundColor: AppColors.error,
-          textColor: Colors.white,
-        );
-        return;
-      }
-
-      setState(() {
-        _foundParcel = data;
-        _isSearching = false;
-      });
-
-      Fluttertoast.showToast(
-        msg: 'Parcel found!',
-        backgroundColor: AppColors.success,
-      );
-    } catch (e) {
-      setState(() {
-        _errorMessage = 'Error searching parcel: $e';
-        _isSearching = false;
-      });
-      Fluttertoast.showToast(
-        msg: 'Error: $e',
-        backgroundColor: AppColors.error,
-      );
-    }
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -5074,7 +4514,6 @@ class _CheckingOrderStatusScreenState extends State<CheckingOrderStatusScreen> {
                       borderRadius: BorderRadius.circular(15),
                     ),
                     child: TextField(
-                      controller: _parcelIdController,
                       decoration: InputDecoration(
                         hintText: 'Parcel ID or tracking number...',
                         hintStyle: const TextStyle(color: Colors.white70),
@@ -5094,29 +4533,23 @@ class _CheckingOrderStatusScreenState extends State<CheckingOrderStatusScreen> {
                         ),
                       ),
                       style: const TextStyle(color: Colors.white),
-                      onSubmitted: (_) => _searchParcel(),
                     ),
                   ),
                   const SizedBox(height: 16),
                   SizedBox(
                     width: double.infinity,
                     child: ElevatedButton.icon(
-                      onPressed: _isSearching ? null : _searchParcel,
-                      icon: _isSearching
-                          ? const SizedBox(
-                              width: 20,
-                              height: 20,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                valueColor: AlwaysStoppedAnimation<Color>(
-                                  AppColors.primary,
-                                ),
-                              ),
-                            )
-                          : const Icon(Icons.arrow_forward_rounded, size: 20),
-                      label: Text(
-                        _isSearching ? 'Searching...' : 'Check Status',
-                        style: const TextStyle(
+                      onPressed: () {
+                        Fluttertoast.showToast(
+                          msg: 'Checking parcel status...',
+                          backgroundColor: Colors.white,
+                          textColor: AppColors.primary,
+                        );
+                      },
+                      icon: const Icon(Icons.arrow_forward_rounded, size: 20),
+                      label: const Text(
+                        'Check Status',
+                        style: TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.w600,
                         ),
@@ -5135,436 +4568,108 @@ class _CheckingOrderStatusScreenState extends State<CheckingOrderStatusScreen> {
               ),
             ),
 
-            // Results or Recent Parcels
+            // Recent Parcels
             Expanded(
-              child: _foundParcel != null
-                  ? _buildParcelDetails()
-                  : _errorMessage != null
-                  ? _buildErrorState()
-                  : _buildRecentParcels(),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildParcelDetails() {
-    if (_foundParcel == null) return Container();
-
-    final status = _foundParcel!['status'] ?? 'Unknown';
-    final senderName = _foundParcel!['senderName'] ?? 'N/A';
-    final receiverName = _foundParcel!['receiverName'] ?? 'N/A';
-    final details = _foundParcel!['details'] ?? 'No details';
-    final parcelId = _foundParcel!['parcelId'] ?? '';
-    final createdAt = _foundParcel!['createdAt'] as Timestamp?;
-
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(24),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Card(
-            elevation: 8,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(20),
-            ),
-            child: Padding(
-              padding: const EdgeInsets.all(24),
-              child: Column(
-                children: [
-                  Container(
-                    width: 80,
-                    height: 80,
-                    decoration: BoxDecoration(
-                      color: _getStatusColor(status).withOpacity(0.1),
-                      shape: BoxShape.circle,
-                    ),
-                    child: Icon(
-                      _getStatusIcon(status),
-                      color: _getStatusColor(status),
-                      size: 40,
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  Text(
-                    'Parcel #${parcelId.substring(0, 8).toUpperCase()}',
-                    style: const TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.w800,
-                      color: AppColors.textPrimary,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 8,
-                    ),
-                    decoration: BoxDecoration(
-                      color: _getStatusColor(status).withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: Text(
-                      status,
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                        color: _getStatusColor(status),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 24),
-                  Divider(color: AppColors.textSecondary.withOpacity(0.2)),
-                  const SizedBox(height: 16),
-                  _buildInfoRow(Icons.person_outline, 'Sender', senderName),
-                  const SizedBox(height: 12),
-                  _buildInfoRow(Icons.person, 'Receiver', receiverName),
-                  const SizedBox(height: 12),
-                  _buildInfoRow(Icons.description, 'Details', details),
-                  if (createdAt != null) ...[
-                    const SizedBox(height: 12),
-                    _buildInfoRow(
-                      Icons.calendar_today,
-                      'Created',
-                      '${createdAt.toDate().day}/${createdAt.toDate().month}/${createdAt.toDate().year}',
-                    ),
-                  ],
-                ],
-              ),
-            ),
-          ),
-          const SizedBox(height: 16),
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton.icon(
-              onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => ParcelDetailScreen(parcel: _foundParcel!),
-                  ),
-                );
-              },
-              icon: const Icon(Icons.visibility_rounded),
-              label: const Text('View Full Details'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.primary,
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(vertical: 16),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(15),
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildInfoRow(IconData icon, String label, String value) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Icon(icon, color: AppColors.primary, size: 20),
-        const SizedBox(width: 12),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                label,
-                style: TextStyle(
-                  fontSize: 12,
-                  color: AppColors.textSecondary,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                value,
-                style: const TextStyle(
-                  fontSize: 14,
-                  color: AppColors.textPrimary,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildErrorState() {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Container(
-              width: 120,
-              height: 120,
-              decoration: BoxDecoration(
-                color: AppColors.error.withOpacity(0.1),
-                shape: BoxShape.circle,
-              ),
-              child: const Icon(
-                Icons.error_outline_rounded,
-                color: AppColors.error,
-                size: 60,
-              ),
-            ),
-            const SizedBox(height: 24),
-            Text(
-              _errorMessage ?? 'An error occurred',
-              textAlign: TextAlign.center,
-              style: const TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.w600,
-                color: AppColors.textPrimary,
-              ),
-            ),
-            const SizedBox(height: 32),
-            ElevatedButton.icon(
-              onPressed: () {
-                setState(() {
-                  _errorMessage = null;
-                  _parcelIdController.clear();
-                });
-              },
-              icon: const Icon(Icons.refresh_rounded),
-              label: const Text('Try Again'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.primary,
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 32,
-                  vertical: 16,
-                ),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(15),
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildRecentParcels() {
-    final phone = widget.user['phone'];
-
-    return Padding(
-      padding: const EdgeInsets.all(24),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            'Your Recent Parcels',
-            style: TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.w700,
-              color: AppColors.textPrimary,
-            ),
-          ),
-          const SizedBox(height: 16),
-          Expanded(
-            child: StreamBuilder<QuerySnapshot>(
-              stream: FirebaseFirestore.instance
-                  .collection('parcels')
-                  .where('receiverPhone', isEqualTo: phone)
-                  .orderBy('createdAt', descending: true)
-                  .limit(10)
-                  .snapshots(),
-              builder: (context, snapshot) {
-                if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-                  // Try sender's parcels
-                  return StreamBuilder<QuerySnapshot>(
-                    stream: FirebaseFirestore.instance
-                        .collection('parcels')
-                        .where('senderPhone', isEqualTo: phone)
-                        .orderBy('createdAt', descending: true)
-                        .limit(10)
-                        .snapshots(),
-                    builder: (context, senderSnapshot) {
-                      if (!senderSnapshot.hasData ||
-                          senderSnapshot.data!.docs.isEmpty) {
-                        return _buildEmptyState();
-                      }
-                      return _buildParcelList(senderSnapshot.data!.docs);
-                    },
-                  );
-                }
-                return _buildParcelList(snapshot.data!.docs);
-              },
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildParcelList(List<QueryDocumentSnapshot> docs) {
-    return ListView.builder(
-      itemCount: docs.length,
-      itemBuilder: (context, index) {
-        final data = docs[index].data() as Map<String, dynamic>;
-        final parcelId = data['parcelId'] ?? docs[index].id;
-        final status = data['status'] ?? 'Pending';
-        final receiverName = data['receiverName'] ?? 'N/A';
-
-        return Container(
-          margin: const EdgeInsets.only(bottom: 12),
-          child: Card(
-            elevation: 4,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(15),
-            ),
-            child: InkWell(
-              borderRadius: BorderRadius.circular(15),
-              onTap: () {
-                setState(() {
-                  _foundParcel = data;
-                  _parcelIdController.text = parcelId;
-                });
-              },
               child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Row(
+                padding: const EdgeInsets.all(24),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Container(
-                      width: 50,
-                      height: 50,
-                      decoration: BoxDecoration(
-                        color: _getStatusColor(status).withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Icon(
-                        _getStatusIcon(status),
-                        color: _getStatusColor(status),
-                        size: 24,
+                    const Text(
+                      'Recent Parcels',
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.textPrimary,
                       ),
                     ),
-                    const SizedBox(width: 16),
+                    const SizedBox(height: 16),
                     Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Parcel #${parcelId.substring(0, 8).toUpperCase()}',
-                            style: const TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w600,
-                              color: AppColors.textPrimary,
+                      child: ListView.builder(
+                        itemCount: 5,
+                        itemBuilder: (context, index) {
+                          return Container(
+                            margin: const EdgeInsets.only(bottom: 12),
+                            child: Card(
+                              elevation: 4,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(15),
+                              ),
+                              child: Padding(
+                                padding: const EdgeInsets.all(16),
+                                child: Row(
+                                  children: [
+                                    Container(
+                                      width: 50,
+                                      height: 50,
+                                      decoration: BoxDecoration(
+                                        color: AppColors.primary.withOpacity(
+                                          0.1,
+                                        ),
+                                        borderRadius: BorderRadius.circular(12),
+                                      ),
+                                      child: const Icon(
+                                        Icons.local_shipping_rounded,
+                                        color: AppColors.primary,
+                                        size: 24,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 16),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            'Parcel #${'ABC123456'.substring(0, 9 - index)}',
+                                            style: const TextStyle(
+                                              fontSize: 16,
+                                              fontWeight: FontWeight.w600,
+                                              color: AppColors.textPrimary,
+                                            ),
+                                          ),
+                                          const SizedBox(height: 4),
+                                          Text(
+                                            index % 3 == 0
+                                                ? 'In Transit'
+                                                : index % 3 == 1
+                                                ? 'Delivered'
+                                                : 'Pending',
+                                            style: TextStyle(
+                                              fontSize: 14,
+                                              color: index % 3 == 0
+                                                  ? AppColors.info
+                                                  : index % 3 == 1
+                                                  ? AppColors.success
+                                                  : AppColors.warning,
+                                              fontWeight: FontWeight.w500,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                    Icon(
+                                      Icons.arrow_forward_ios_rounded,
+                                      color: AppColors.textSecondary
+                                          .withOpacity(0.5),
+                                      size: 16,
+                                    ),
+                                  ],
+                                ),
+                              ),
                             ),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            'To: $receiverName',
-                            style: TextStyle(
-                              fontSize: 13,
-                              color: AppColors.textSecondary,
-                            ),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            status,
-                            style: TextStyle(
-                              fontSize: 14,
-                              color: _getStatusColor(status),
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                        ],
+                          );
+                        },
                       ),
-                    ),
-                    Icon(
-                      Icons.arrow_forward_ios_rounded,
-                      color: AppColors.textSecondary.withOpacity(0.5),
-                      size: 16,
                     ),
                   ],
                 ),
               ),
             ),
-          ),
-        );
-      },
-    );
-  }
-
-  Widget _buildEmptyState() {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Container(
-            width: 120,
-            height: 120,
-            decoration: BoxDecoration(
-              color: AppColors.primary.withOpacity(0.1),
-              shape: BoxShape.circle,
-            ),
-            child: const Icon(
-              Icons.inventory_2_outlined,
-              size: 60,
-              color: AppColors.primary,
-            ),
-          ),
-          const SizedBox(height: 24),
-          const Text(
-            'No Parcels Yet',
-            style: TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.w700,
-              color: AppColors.textPrimary,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 40),
-            child: Text(
-              'Enter a parcel ID above to check its status',
-              textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 14, color: AppColors.textSecondary),
-            ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
-  }
-
-  Color _getStatusColor(String status) {
-    switch (status) {
-      case 'Delivered':
-        return AppColors.success;
-      case 'Picked Up':
-      case 'Out for Delivery':
-        return AppColors.info;
-      case 'Assigned':
-        return AppColors.warning;
-      default:
-        return AppColors.textSecondary;
-    }
-  }
-
-  IconData _getStatusIcon(String status) {
-    switch (status) {
-      case 'Delivered':
-        return Icons.check_circle_rounded;
-      case 'Picked Up':
-        return Icons.inventory_2_rounded;
-      case 'Out for Delivery':
-        return Icons.local_shipping_rounded;
-      case 'Assigned':
-        return Icons.assignment_rounded;
-      default:
-        return Icons.inventory_rounded;
-    }
   }
 }
 
@@ -8318,14 +7423,8 @@ class _SignupScreenState extends State<SignupScreen> {
         return;
       }
 
-      // Generate user ID in format user_XXXXXX (6 random digits)
-      final random = Random();
-      final randomDigits = List.generate(6, (_) => random.nextInt(10)).join();
-      final userId = 'user_$randomDigits';
-
       final hashed = sha256.convert(utf8.encode(pwd)).toString();
       final docRef = await FirebaseFirestore.instance.collection('users').add({
-        'userId': userId,
         'name': name,
         'phone': phone,
         'email': email,
