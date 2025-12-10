@@ -36,9 +36,7 @@ void main() async {
   runApp(const DropLockApp());
 }
 
-/* =========================
-   Storage helpers
-========================= */
+//Storage helpers
 final _secureStorage = const FlutterSecureStorage();
 
 Future<void> _saveLogin({
@@ -71,9 +69,7 @@ Future<void> _clearSaved() async {
   await _secureStorage.delete(key: 'saved_password');
 }
 
-/* =========================
-   App Theme & Colors
-========================= */
+// App Theme & Colors
 class AppColors {
   static const Color primary = Color(0xFF9C6BD6);
   static const Color primaryLight = Color(0xFFB89CE6);
@@ -190,9 +186,7 @@ class DropLockApp extends StatelessWidget {
   }
 }
 
-/* =========================
-   Enhanced Splash Screen
-========================= */
+// Splash Screen
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
 
@@ -480,9 +474,7 @@ class _SplashScreenState extends State<SplashScreen>
   }
 }
 
-/* =========================
-   Enhanced Login Screen
-========================= */
+// Enhanced Login Screen
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
   @override
@@ -952,9 +944,7 @@ class _LoginScreenState extends State<LoginScreen>
   }
 }
 
-/* =========================
-   Enhanced User Dashboard
-========================= */
+// User Dashboard
 class UserDashboard extends StatefulWidget {
   final Map<String, dynamic> user;
   const UserDashboard({super.key, required this.user});
@@ -1747,9 +1737,7 @@ class _UserDashboardState extends State<UserDashboard> {
   }
 }
 
-/* =========================
-   Enhanced Submit Order Screen
-========================= */
+//   Enhanced Submit Order Screen
 class SubmitOrderScreen extends StatefulWidget {
   final Map<String, dynamic> user;
   const SubmitOrderScreen({super.key, required this.user});
@@ -2334,9 +2322,7 @@ class _SubmitOrderScreenState extends State<SubmitOrderScreen> {
   }
 }
 
-/* =========================
-   Enhanced Rider Dashboard
-========================= */
+// Rider Dashboard
 class RiderDashboard extends StatelessWidget {
   final Map<String, dynamic> user;
   const RiderDashboard({super.key, required this.user});
@@ -2665,9 +2651,7 @@ class RiderDashboard extends StatelessWidget {
   }
 }
 
-/* =========================
-   Enhanced Profile Screen
-========================= */
+// Enhanced Profile Screen
 class ProfileScreen extends StatefulWidget {
   final Map<String, dynamic> user;
   const ProfileScreen({super.key, required this.user});
@@ -3270,9 +3254,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 }
 
-/* =========================
-   Logout helper
-========================= */
+//Logout helper
 void logout(BuildContext context) async {
   showDialog(
     context: context,
@@ -3369,9 +3351,7 @@ void logout(BuildContext context) async {
   );
 }
 
-/* =========================
-  
-   (IncomingParcelsScreen,*/
+// IncomingParcelsScreen,
 
 class IncomingParcelsScreen extends StatelessWidget {
   final Map<String, dynamic> user;
@@ -3618,9 +3598,7 @@ class IncomingParcelsScreen extends StatelessWidget {
   }
 }
 
-/* =========================
-   Enhanced Parcel Detail Screen
-========================= */
+// Parcel Detail Screen
 class ParcelDetailScreen extends StatelessWidget {
   final Map<String, dynamic> parcel;
   const ParcelDetailScreen({super.key, required this.parcel});
@@ -4037,9 +4015,7 @@ class ParcelDetailScreen extends StatelessWidget {
   }
 }
 
-/* =========================
-   Enhanced User Track Screen with Google Maps
-========================= */
+// User Track Screen with Google Maps
 class UserTrackScreen extends StatefulWidget {
   final Map<String, dynamic> user;
   const UserTrackScreen({super.key, required this.user});
@@ -4906,9 +4882,7 @@ class _UserTrackScreenState extends State<UserTrackScreen> {
   }
 }
 
-/* =========================
-   Enhanced Checking Order Status Screen
-========================= */
+// Checking Order Status Screen
 class CheckingOrderStatusScreen extends StatefulWidget {
   final Map<String, dynamic> user;
   const CheckingOrderStatusScreen({super.key, required this.user});
@@ -5568,9 +5542,7 @@ class _CheckingOrderStatusScreenState extends State<CheckingOrderStatusScreen> {
   }
 }
 
-/* =========================
-   Enhanced Parcel History Screen
-========================= */
+// Parcel History Screen
 class ParcelHistoryScreen extends StatefulWidget {
   final Map<String, dynamic> user;
   const ParcelHistoryScreen({super.key, required this.user});
@@ -5875,9 +5847,7 @@ class _ParcelHistoryScreenState extends State<ParcelHistoryScreen> {
   }
 }
 
-/* =========================
-   Enhanced User Notifications Screen
-========================= */
+// User Notifications Screen
 class UserNotificationsScreen extends StatefulWidget {
   final Map<String, dynamic> user;
   final VoidCallback? onNotificationsViewed;
@@ -6228,9 +6198,7 @@ class _UserNotificationsScreenState extends State<UserNotificationsScreen> {
   }
 }
 
-/* =========================
-   Enhanced Rider Available Parcels Screen
-========================= */
+// Rider Available Parcels Screen
 class RiderAvailableParcelsScreen extends StatefulWidget {
   final Map<String, dynamic> user;
   const RiderAvailableParcelsScreen({super.key, required this.user});
@@ -6593,9 +6561,7 @@ class _RiderAvailableParcelsScreenState
   }
 }
 
-/* =========================
-   Enhanced Rider Assigned Deliveries Screen
-========================= */
+// Rider Assigned Deliveries Screen
 class RiderAssignedDeliveriesScreen extends StatefulWidget {
   final Map<String, dynamic> user;
   const RiderAssignedDeliveriesScreen({super.key, required this.user});
@@ -7074,9 +7040,7 @@ class _RiderAssignedDeliveriesScreenState
   }
 }
 
-/* =========================
-   Enhanced Rider Delivery History Screen
-========================= */
+// Rider Delivery History Screen
 class RiderDeliveryHistoryScreen extends StatelessWidget {
   final Map<String, dynamic> user;
   const RiderDeliveryHistoryScreen({super.key, required this.user});
@@ -7295,9 +7259,7 @@ class RiderDeliveryHistoryScreen extends StatelessWidget {
   }
 }
 
-/* =========================
-   Enhanced Rider Scan Parcel Screen
-========================= */
+// Rider Scan Parcel Screen
 class RiderScanParcelScreen extends StatefulWidget {
   final Map<String, dynamic> user;
   const RiderScanParcelScreen({super.key, required this.user});
@@ -7984,9 +7946,7 @@ class _ScannerCornerPainter extends CustomPainter {
   bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
 
-/* =========================
-   Enhanced Signup Screen
-========================= */
+// Signup Screen
 class SignupScreen extends StatefulWidget {
   const SignupScreen({super.key});
   @override
@@ -8377,9 +8337,7 @@ class _SignupScreenState extends State<SignupScreen> {
   }
 }
 
-/* =========================
-   Enhanced Forgot Password Screen
-========================= */
+// Forgot Password Screen
 class ForgotPasswordScreen extends StatefulWidget {
   const ForgotPasswordScreen({super.key});
 
