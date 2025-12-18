@@ -2069,15 +2069,9 @@ class _SubmitOrderScreenState extends State<SubmitOrderScreen> {
         final pickupPassword = (1000 + random.nextInt(9000))
             .toString(); // Generates 1000-9999
 
-        final qrData = jsonEncode({
-          'parcelId': parcelId,
-          'senderName': senderName.text.trim(),
-          'senderPhone': senderPhone.text.trim(),
-          'receiverName': receiverName.text.trim(),
-          'receiverPhone': receiverPhone.text.trim(),
-          'status': 'Pending',
-          'type': 'parcel',
-        });
+        // QR data with only receiver details: receiverName,parcelId,receiverPhone,receiverAddress
+        final qrData =
+            '${receiverName.text.trim()},$parcelId,${receiverPhone.text.trim()},${receiverAddress.text.trim()}';
 
         final parcelData = {
           'senderId': widget.user['phone'],
