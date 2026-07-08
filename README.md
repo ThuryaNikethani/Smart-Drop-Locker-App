@@ -215,6 +215,7 @@ This project is developed for educational and research purposes.
 ## 👩‍💻 Developed By
 
 **Smart Drop Locker Development Team**
+
 https://github.com/ThuryaNikethani
 https://github.com/SanduniKarunathilake
 https://github.com/NimeshKolambage
