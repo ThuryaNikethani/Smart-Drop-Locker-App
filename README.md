@@ -217,6 +217,8 @@ This project is developed for educational and research purposes.
 **Smart Drop Locker Development Team**
 
 [Thurya Nikethani(Thinu)](https://github.com/ThuryaNikethani)
+[https://github.com/SanduniKarunathilake](https://github.com/SanduniKarunathilake)
+[https://github.com/NimeshKolambage](https://github.com/NimeshKolambage)
 
 
 
